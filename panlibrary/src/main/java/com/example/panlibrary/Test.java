@@ -5,4 +5,7 @@ package com.example.panlibrary;
  */
 
 public class Test {
+    public static void test() {
+
+    }
 }
