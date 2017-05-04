@@ -90,6 +90,7 @@ public class PanView extends View {
         super.onDraw(canvas);
         float x = getMeasuredWidth() / 2;
         float y = getMeasuredHeight() / 2;
+
         canvas.drawCircle(x, y, Math.min(x, y) - strokeWidth, paint);
     }
 }
