@@ -16,11 +16,27 @@ import android.view.View;
 public class PanView extends View {
 
     private static final String TAG = PanView.class.getSimpleName();
+    private static final int CIRCLE_ANGLE = 360;
 
+    private RectF oval;
     private Paint paint;
     private float strokeWidth = 10f;
-    private int wrapWidth = 1000;
-    private int wrapHeight = 1000;
+    private static final int wrapWidth = 1000;
+    private static final int wrapHeight = 1000;
+
+    private int part = 4;
+    private int arcAngle;
+
+    public void setStrokeWidth(float strokeWidth) {
+        this.strokeWidth = strokeWidth;
+        invalidate();
+    }
+
+    public void setPart(int part) {
+        this.part = part;
+        arcAngle = CIRCLE_ANGLE / part;
+        invalidate();
+    }
 
     public PanView(Context context) {
         super(context);
@@ -79,14 +95,16 @@ public class PanView extends View {
         return result;
     }
 
+
     @Override
     protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-//        drawCircle(canvas);
-        canvas.drawArc(oval, -90, 90, true, paint);
+        int startAngle = 0;
+        for (int i = 0; i < part; i++) {
+            canvas.drawArc(oval, startAngle += arcAngle, arcAngle, true, paint);
+//            canvas.rotate(arcAngle);
+        }
     }
 
-    private RectF oval;
 
     private void init() {
         paint = new Paint();
@@ -95,6 +113,9 @@ public class PanView extends View {
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(strokeWidth);
         oval = new RectF();
+        arcAngle = CIRCLE_ANGLE / part;
+
+
 //        invalidate();
     }
 
