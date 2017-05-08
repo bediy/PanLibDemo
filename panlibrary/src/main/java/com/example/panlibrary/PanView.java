@@ -1,17 +1,12 @@
 package com.example.panlibrary;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Shader;
+import android.graphics.RectF;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
 
 /**
@@ -45,14 +40,6 @@ public class PanView extends View {
     public PanView(Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
         init();
-    }
-
-    private void init() {
-        paint = new Paint();
-//        paint.setAntiAlias(true);
-//        paint.setColor(Color.BLACK);
-//        paint.setStyle(Paint.Style.STROKE);
-//        paint.setStrokeWidth(strokeWidth);
     }
 
     @Override
@@ -96,22 +83,36 @@ public class PanView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 //        drawCircle(canvas);
-        drawCircleImage(canvas);
+        canvas.drawArc(oval, -90, 90, true, paint);
     }
 
-    private void drawCircleImage(Canvas canvas) {
-        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher);
-        int measuredWidth = getMeasuredWidth();
-        int measuredHeight = getMeasuredHeight();
-        int needLength = Math.min(measuredWidth, measuredHeight);
-        Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, needLength, needLength, true);
-        Log.i(TAG, needLength + " " + needLength);
-        Log.i(TAG, scaledBitmap.getWidth() + " " + scaledBitmap.getHeight());
-        BitmapShader bitmapShader = new BitmapShader(scaledBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
-        paint.setShader(bitmapShader);
-//        canvas.drawRect(0, 0, getMeasuredWidth(), getMeasuredHeight(), paint);
-        drawCircle(canvas);
+    private RectF oval;
+
+    private void init() {
+        paint = new Paint();
+        paint.setAntiAlias(true);
+        paint.setColor(Color.CYAN);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(strokeWidth);
+        oval = new RectF();
+//        invalidate();
     }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        int width = getWidth();
+        int height = getHeight();
+        if (height > width) {
+            oval.set(0, (height - width) / 2, width, height / 2 + width / 2);
+        } else {
+            oval.set((width - height) / 2, 0, height / 2 + width / 2, height);
+        }
+
+        oval.inset(strokeWidth, strokeWidth);
+        invalidate();
+    }
+
 
     private void drawCircle(Canvas canvas) {
         float x = getMeasuredWidth() / 2;
