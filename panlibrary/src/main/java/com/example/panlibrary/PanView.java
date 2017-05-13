@@ -7,10 +7,14 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
 
 /**
  * Created by Ye on 2017/5/3/0003.
+ *
  */
 
 public class PanView extends View {
@@ -24,8 +28,9 @@ public class PanView extends View {
     private static final int wrapWidth = 1000;
     private static final int wrapHeight = 1000;
 
-    private int part = 4;
+    private int part = 6;
     private int arcAngle;
+    private RotateAnimation rotateAnimation;
 
     public void setStrokeWidth(float strokeWidth) {
         this.strokeWidth = strokeWidth;
@@ -114,9 +119,19 @@ public class PanView extends View {
         paint.setStrokeWidth(strokeWidth);
         oval = new RectF();
         arcAngle = CIRCLE_ANGLE / part;
+    }
 
-
-//        invalidate();
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+//                rotateAnimation.startNow();
+                startAnimation(rotateAnimation);
+                break;
+            case MotionEvent.ACTION_MOVE:
+                break;
+        }
+        return true;
     }
 
     @Override
@@ -131,9 +146,12 @@ public class PanView extends View {
         }
 
         oval.inset(strokeWidth, strokeWidth);
+
+        rotateAnimation = new RotateAnimation(0, 1080, oval.centerX(), oval.centerY());
+        rotateAnimation.setDuration(5000);
+
         invalidate();
     }
-
 
     private void drawCircle(Canvas canvas) {
         float x = getMeasuredWidth() / 2;
@@ -142,4 +160,5 @@ public class PanView extends View {
         canvas.drawCircle(x, y, Math.min(x, y) - strokeWidth, paint);
 
     }
+
 }
