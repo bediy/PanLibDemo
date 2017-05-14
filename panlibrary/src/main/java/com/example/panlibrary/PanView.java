@@ -7,10 +7,9 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.RotateAnimation;
 
 /**
  * Created by Ye on 2017/5/3/0003.
@@ -22,6 +21,8 @@ public class PanView extends View {
     private static final String TAG = PanView.class.getSimpleName();
     private static final int CIRCLE_ANGLE = 360;
 
+    private float centerOnScreenX = 0;
+    private float centerOnScreenY = 0;
     private RectF oval;
     private Paint paint;
     private float strokeWidth = 10f;
@@ -30,7 +31,6 @@ public class PanView extends View {
 
     private int part = 6;
     private int arcAngle;
-    private RotateAnimation rotateAnimation;
 
     public void setStrokeWidth(float strokeWidth) {
         this.strokeWidth = strokeWidth;
@@ -106,7 +106,6 @@ public class PanView extends View {
         int startAngle = 0;
         for (int i = 0; i < part; i++) {
             canvas.drawArc(oval, startAngle += arcAngle, arcAngle, true, paint);
-//            canvas.rotate(arcAngle);
         }
     }
 
@@ -114,21 +113,34 @@ public class PanView extends View {
     private void init() {
         paint = new Paint();
         paint.setAntiAlias(true);
-        paint.setColor(Color.CYAN);
+        paint.setColor(Color.BLUE);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(strokeWidth);
         oval = new RectF();
         arcAngle = CIRCLE_ANGLE / part;
     }
 
+    /**
+     * @param event
+     * 角度 = Math.atan((dpPoint.y-dpCenter.y) / (dpPoint.x-dpCenter.x)) / π（3.14） * 180度
+     * @return
+     */
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-//                rotateAnimation.startNow();
-                startAnimation(rotateAnimation);
                 break;
             case MotionEvent.ACTION_MOVE:
+                double deltaY = event.getRawY() - centerOnScreenY;
+                double deltaX = event.getRawX() - centerOnScreenX;
+
+//                double degrees = Math.atan2(deltaY, deltaX) / Math.PI * 180;
+                double degrees = Math.atan(deltaY / deltaX) / Math.PI * 180;
+
+                Log.i(TAG, event.getRawY() + "/////" + centerOnScreenY);
+//                Log.i(TAG, degrees + "/////" );
+                setRotation((float) degrees);
+
                 break;
         }
         return true;
@@ -137,6 +149,10 @@ public class PanView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+
+        int[] locationOnScreen = new int[2];
+        getLocationOnScreen(locationOnScreen);
+
         int width = getWidth();
         int height = getHeight();
         if (height > width) {
@@ -144,12 +160,9 @@ public class PanView extends View {
         } else {
             oval.set((width - height) / 2, 0, height / 2 + width / 2, height);
         }
-
         oval.inset(strokeWidth, strokeWidth);
-
-        rotateAnimation = new RotateAnimation(0, 1080, oval.centerX(), oval.centerY());
-        rotateAnimation.setDuration(5000);
-
+        centerOnScreenX = oval.centerX() + locationOnScreen[0];
+        centerOnScreenY = oval.centerY() + locationOnScreen[1];
         invalidate();
     }
 
