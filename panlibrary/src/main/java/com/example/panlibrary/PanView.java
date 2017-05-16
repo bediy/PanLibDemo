@@ -21,6 +21,9 @@ public class PanView extends View {
     private static final String TAG = PanView.class.getSimpleName();
     private static final int CIRCLE_ANGLE = 360;
 
+    private double downDegrees;
+    private double lastRotation;
+
     private float centerOnScreenX = 0;
     private float centerOnScreenY = 0;
     private RectF oval;
@@ -123,28 +126,33 @@ public class PanView extends View {
     /**
      * @param event
      * 角度 = Math.atan((dpPoint.y-dpCenter.y) / (dpPoint.x-dpCenter.x)) / π（3.14） * 180度
+     *          Math.atan2(deltaY, deltaX) / Math.PI * 180;
      * @return
      */
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+                downDegrees = getDegrees(event);
+                lastRotation = getRotation();
                 break;
             case MotionEvent.ACTION_MOVE:
-                double deltaY = event.getRawY() - centerOnScreenY;
-                double deltaX = event.getRawX() - centerOnScreenX;
-
-//                double degrees = Math.atan2(deltaY, deltaX) / Math.PI * 180;
-                double degrees = Math.atan(deltaY / deltaX) / Math.PI * 180;
-
-                Log.i(TAG, event.getRawY() + "/////" + centerOnScreenY);
-//                Log.i(TAG, degrees + "/////" );
-                setRotation((float) degrees);
-
+                double moveDegrees = getDegrees(event);
+                double deltaDegrees = moveDegrees - downDegrees;
+                int rotation = (int) (lastRotation + deltaDegrees);
+                Log.i(TAG, deltaDegrees + "/////" );
+                setRotation((float) rotation);
                 break;
         }
         return true;
     }
+
+    private double getDegrees(MotionEvent event) {
+        double deltaY = event.getRawY() - centerOnScreenY;
+        double deltaX = event.getRawX() - centerOnScreenX;
+        return Math.atan(deltaY / deltaX) / Math.PI * 180;
+    }
+
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
