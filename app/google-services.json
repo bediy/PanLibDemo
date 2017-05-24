@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "339373235046",
+    "firebase_url": "https://bedivered.firebaseio.com",
+    "project_id": "bedivered",
+    "storage_bucket": "bedivered.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:339373235046:android:b60b82e5408f5c4b",
+        "android_client_info": {
+          "package_name": "com.example.ye.panlibdemo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "339373235046-mdm467etde5dm5g5ohmd8rm1q759fd1n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ye.panlibdemo",
+            "certificate_hash": "22a7687004969d3572e2188a8cdec6c924565d1c"
+          }
+        },
+        {
+          "client_id": "339373235046-cs0cjbe46i5ivcckibu2kmig4soms0cf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAT5F2N75DdOjVFIMtYYaQGoqU66TerzsE"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "339373235046-cs0cjbe46i5ivcckibu2kmig4soms0cf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

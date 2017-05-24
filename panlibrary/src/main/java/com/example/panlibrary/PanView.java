@@ -1,5 +1,6 @@
 package com.example.panlibrary;
 
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -9,11 +10,12 @@ import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 
 /**
  * Created by Ye on 2017/5/3/0003.
- *
  */
 
 public class PanView extends View {
@@ -21,8 +23,12 @@ public class PanView extends View {
     private static final String TAG = PanView.class.getSimpleName();
     private static final int CIRCLE_ANGLE = 360;
 
+    private VelocityTracker velocityTracker;
     private double downDegrees;
     private double lastRotation;
+    public double lastMoveDegrees;
+    private ObjectAnimator rotationAnimator;
+    private boolean clockWise;
 
     private float centerOnScreenX = 0;
     private float centerOnScreenY = 0;
@@ -66,6 +72,17 @@ public class PanView extends View {
         init();
     }
 
+    private void init() {
+        paint = new Paint();
+        paint.setAntiAlias(true);
+        paint.setColor(Color.BLUE);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(strokeWidth);
+        oval = new RectF();
+        arcAngle = CIRCLE_ANGLE / part;
+        velocityTracker = VelocityTracker.obtain();
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         setMeasuredDimension(measureWidth(widthMeasureSpec), measureHeight(heightMeasureSpec));
@@ -86,6 +103,7 @@ public class PanView extends View {
         }
         return result;
     }
+
 
     private int measureHeight(int heightMeasureSpec) {
         int result;
@@ -112,47 +130,73 @@ public class PanView extends View {
         }
     }
 
-
-    private void init() {
-        paint = new Paint();
-        paint.setAntiAlias(true);
-        paint.setColor(Color.BLUE);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(strokeWidth);
-        oval = new RectF();
-        arcAngle = CIRCLE_ANGLE / part;
-    }
-
-    /**
-     * @param event
-     * 角度 = Math.atan((dpPoint.y-dpCenter.y) / (dpPoint.x-dpCenter.x)) / π（3.14） * 180度
-     *          Math.atan2(deltaY, deltaX) / Math.PI * 180;
-     * @return
-     */
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+
+        velocityTracker.addMovement(event);
+
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 downDegrees = getDegrees(event);
                 lastRotation = getRotation();
+                stopAnimator();
                 break;
             case MotionEvent.ACTION_MOVE:
                 double moveDegrees = getDegrees(event);
+                clockWise = isClockWise(moveDegrees);
                 double deltaDegrees = moveDegrees - downDegrees;
-                int rotation = (int) (lastRotation + deltaDegrees);
-                Log.i(TAG, deltaDegrees + "/////" );
+                int rotation = (int) (lastRotation + deltaDegrees) % 180;
                 setRotation((float) rotation);
+                lastMoveDegrees = moveDegrees;
+                break;
+            case MotionEvent.ACTION_UP:
+                velocityTracker.computeCurrentVelocity(1000, 15000f);
+                int xVelocity = (int) velocityTracker.getXVelocity();
+                int yVelocity = (int) velocityTracker.getYVelocity();
+                if (Math.abs(xVelocity) < 10 && Math.abs(yVelocity) < 10)
+                    break;
+
+                int rotationTo = (int) (Math.max(Math.abs(xVelocity), Math.abs(yVelocity)) * 0.5f);
+                if (!clockWise)
+                    rotationTo = -rotationTo;
+
+                long durarion = (long) Math.sqrt(xVelocity * xVelocity + yVelocity * yVelocity);
+//                Log.i(TAG, durarion + "/////" + rotationTo);
+                rotationAnimator = ObjectAnimator.ofFloat(this, "rotation", getRotation(), rotationTo);
+                rotationAnimator.setDuration((long) (durarion * 0.8f));
+                rotationAnimator.setInterpolator(new DecelerateInterpolator(1f));
+                rotationAnimator.start();
                 break;
         }
         return true;
     }
 
+    public boolean isClockWise(double moveDegrees) {
+
+        Log.i(TAG, "/////" + moveDegrees);
+        if (Math.abs(moveDegrees) > 170 && moveDegrees < 0 && lastMoveDegrees > 0) {
+            return true;
+        } else if (Math.abs(moveDegrees) > 170 && moveDegrees > 0 && lastMoveDegrees < 0) {
+            return false;
+        } else {
+            if (moveDegrees > lastMoveDegrees)
+                return true;
+            else
+                return false;
+        }
+    }
+
+    /**
+     * @param event 角度 = Math.atan((dpPoint.y-dpCenter.y) / (dpPoint.x-dpCenter.x)) / π（3.14） * 180度
+     *              Math.atan2(deltaY, deltaX) / Math.PI * 180;
+     * @return
+     */
     private double getDegrees(MotionEvent event) {
         double deltaY = event.getRawY() - centerOnScreenY;
         double deltaX = event.getRawX() - centerOnScreenX;
-        return Math.atan(deltaY / deltaX) / Math.PI * 180;
+//        return Math.atan(deltaY / deltaX) / Math.PI * 180;
+        return Math.atan2(deltaY, deltaX) / Math.PI * 180;
     }
-
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
@@ -172,6 +216,28 @@ public class PanView extends View {
         centerOnScreenX = oval.centerX() + locationOnScreen[0];
         centerOnScreenY = oval.centerY() + locationOnScreen[1];
         invalidate();
+    }
+
+    private void stopAnimator() {
+        if (rotationAnimator != null) {
+            if (rotationAnimator.isRunning())
+                rotationAnimator.cancel();
+        }
+    }
+
+
+    private void releaseVelocityTracker() {
+        if (null != velocityTracker) {
+            velocityTracker.clear();
+            velocityTracker.recycle();
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        releaseVelocityTracker();
+        stopAnimator();
     }
 
     private void drawCircle(Canvas canvas) {
