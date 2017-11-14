@@ -1,18 +1,30 @@
 package com.example.panlibrary;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
+import android.hardware.SensorManager;
 import android.support.annotation.Nullable;
+import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.Scroller;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Created by Ye on 2017/5/3/0003.
@@ -22,24 +34,62 @@ public class PanView extends View {
 
     private static final String TAG = PanView.class.getSimpleName();
     private static final int CIRCLE_ANGLE = 360;
+    private static float DECELERATION_RATE = (float) (Math.log(0.78) / Math.log(0.9));
+    private float mFlingFriction = ViewConfiguration.getScrollFriction();
+    private float mPhysicalCoeff;
+    private static final float INFLEXION = 0.35f; // Tension lines cross at (INFLEXION, 1)
 
     private VelocityTracker velocityTracker;
     private double downDegrees;
-    private double lastRotation;
     public double lastMoveDegrees;
     private ObjectAnimator rotationAnimator;
     private boolean clockWise;
 
+    int colors[] = {
+            R.color.red,
+            R.color.green,
+            R.color.orange,
+            R.color.light_blue,
+            R.color.indigo,
+            R.color.blue_grey,
+    };
+    /*      R.color.blue,
+            R.color.deep_purple,
+            R.color.light_green,
+            R.color.lime,
+            R.color.yellow,
+            R.color.amber,
+            R.color.cyan,
+            R.color.teal,
+            R.color.deep_orange,
+            R.color.pink,
+            R.color.brown,
+            R.color.purple,
+            R.color.grey,
+*/
+    private List<String> itemNames = new ArrayList<>();
+    private FixedSizeList<Double> fixedSizeList = new FixedSizeList<>();
+
     private float centerOnScreenX = 0;
     private float centerOnScreenY = 0;
     private RectF oval;
-    private Paint paint;
+    private Rect textRect = new Rect();
+
+    private Paint arcPaint;
+    private Paint textPaint;
     private float strokeWidth = 10f;
     private static final int wrapWidth = 1000;
     private static final int wrapHeight = 1000;
 
     private int part = 6;
-    private int arcAngle;
+    private int sweepAngle;
+    private int mMaximumVelocity;
+    private int mMinimumVelocity;
+    private Scroller scroller;
+    private int startAngle = 0;
+    private int rotation;
+    private double totalRotation;
+    private double lastDegrees;
 
     public void setStrokeWidth(float strokeWidth) {
         this.strokeWidth = strokeWidth;
@@ -48,7 +98,7 @@ public class PanView extends View {
 
     public void setPart(int part) {
         this.part = part;
-        arcAngle = CIRCLE_ANGLE / part;
+        sweepAngle = CIRCLE_ANGLE / part;
         invalidate();
     }
 
@@ -73,60 +123,62 @@ public class PanView extends View {
     }
 
     private void init() {
-        paint = new Paint();
-        paint.setAntiAlias(true);
-        paint.setColor(Color.BLUE);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(strokeWidth);
+        final ViewConfiguration configuration = ViewConfiguration.get(getContext());
+        mMaximumVelocity = configuration.getScaledMaximumFlingVelocity();
+        mMinimumVelocity = configuration.getScaledMinimumFlingVelocity();
+
+        final float ppi = getContext().getResources().getDisplayMetrics().density * 160.0f;
+        mPhysicalCoeff = SensorManager.GRAVITY_EARTH // g (m/s^2)
+                * 39.37f // inch/meter
+                * ppi
+                * 0.84f; // look and feel tuning
+
+        arcPaint = new Paint();
+        arcPaint.setAntiAlias(true);
+        arcPaint.setStyle(Paint.Style.FILL);
+//        arcPaint.setColor(Color.BLUE);
+//        arcPaint.setStrokeWidth(strokeWidth);
+        textPaint = new Paint();
+        textPaint.setColor(Color.WHITE);
+        textPaint.setTextSize(100);
+        textPaint.setTextAlign(Paint.Align.CENTER);
         oval = new RectF();
-        arcAngle = CIRCLE_ANGLE / part;
+        sweepAngle = CIRCLE_ANGLE / part;
         velocityTracker = VelocityTracker.obtain();
+        itemNames.add("叶云");
+        itemNames.add("吴昊");
+        itemNames.add("杨盛晖");
+        scroller = new Scroller(getContext());
     }
 
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setMeasuredDimension(measureWidth(widthMeasureSpec), measureHeight(heightMeasureSpec));
+    public void setItemNames(List<String> itemNames) {
+        this.itemNames = itemNames;
     }
 
-    private int measureWidth(int widthMeasureSpec) {
-        int result;
-        int specMode = MeasureSpec.getMode(widthMeasureSpec);
-        int specSize = MeasureSpec.getSize(widthMeasureSpec);
-
-        if (specMode == MeasureSpec.EXACTLY) {
-            result = specSize;
-        } else {
-            result = wrapWidth;
-            if (specMode == MeasureSpec.AT_MOST) {
-                result = Math.min(result, specSize);
-            }
-        }
-        return result;
+    private int getColorById(int id) {
+        return ContextCompat.getColor(getContext(), id);
     }
 
-
-    private int measureHeight(int heightMeasureSpec) {
-        int result;
-        int specMode = MeasureSpec.getMode(heightMeasureSpec);
-        int specSize = MeasureSpec.getSize(heightMeasureSpec);
-
-        if (specMode == MeasureSpec.EXACTLY) {
-            result = specSize;
-        } else {
-            result = wrapHeight;
-            if (specMode == MeasureSpec.AT_MOST) {
-                result = Math.min(result, specSize);
-            }
-        }
-        return result;
+    public void reset() {
+        rotation = 0;
+        totalRotation = 0;
+        invalidate();
     }
-
 
     @Override
     protected void onDraw(Canvas canvas) {
-        int startAngle = 0;
+
         for (int i = 0; i < part; i++) {
-            canvas.drawArc(oval, startAngle += arcAngle, arcAngle, true, paint);
+            String itemName = getItemName(i);
+            textPaint.getTextBounds(itemName, 0, itemName.length() - 1, textRect);
+            arcPaint.setColor(getColorById(getColor(i)));
+            canvas.drawArc(oval, rotation, sweepAngle, true, arcPaint);
+            canvas.rotate(sweepAngle, oval.centerX(), oval.centerY());
+            /*canvas.save();
+            canvas.translate(oval.centerX(), oval.centerY());
+            canvas.rotate(-sweepAngle);
+            canvas.drawText(itemName, oval.width() / 4, textRect.height() / 2, textPaint);
+            canvas.restore();*/
         }
     }
 
@@ -137,53 +189,116 @@ public class PanView extends View {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+                performClick();
                 downDegrees = getDegrees(event);
-                lastRotation = getRotation();
-                stopAnimator();
                 break;
             case MotionEvent.ACTION_MOVE:
-                double moveDegrees = getDegrees(event);
+                final double moveDegrees = getDegrees(event);
                 clockWise = isClockWise(moveDegrees);
-                double deltaDegrees = moveDegrees - downDegrees;
-                int rotation = (int) (lastRotation + deltaDegrees) % 180;
-                setRotation((float) rotation);
+                fixedSizeList.add(moveDegrees);
+                final double deltaDegrees = moveDegrees - downDegrees;
+                rotation = (int) (totalRotation + deltaDegrees);
+//                Log.i(TAG, "/////" + totalRotation + "..." + deltaDegrees);
+                invalidate();
+                lastDegrees = deltaDegrees;
                 lastMoveDegrees = moveDegrees;
                 break;
             case MotionEvent.ACTION_UP:
-                velocityTracker.computeCurrentVelocity(1000, 15000f);
+                totalRotation += lastDegrees;
+                velocityTracker.computeCurrentVelocity(1000, mMaximumVelocity);//28000
                 int xVelocity = (int) velocityTracker.getXVelocity();
                 int yVelocity = (int) velocityTracker.getYVelocity();
-                if (Math.abs(xVelocity) < 10 && Math.abs(yVelocity) < 10)
+                if (Math.abs(xVelocity) < mMinimumVelocity && Math.abs(yVelocity) < mMinimumVelocity)
                     break;
 
-                int rotationTo = (int) (Math.max(Math.abs(xVelocity), Math.abs(yVelocity)) * 0.5f);
+                final double velocity = Math.sqrt(xVelocity * xVelocity + yVelocity * yVelocity);
+//                long duration = (long) (velocity * 0.42);
+                int rotationTo = (int) (velocity * 0.5);
+//                long duration = getSplineFlingDuration((int) velocity);
+//                int rotationTo = (int) getSplineFlingRotation((int) velocity);
+
                 if (!clockWise)
                     rotationTo = -rotationTo;
 
-                long durarion = (long) Math.sqrt(xVelocity * xVelocity + yVelocity * yVelocity);
-//                Log.i(TAG, durarion + "/////" + rotationTo);
-                rotationAnimator = ObjectAnimator.ofFloat(this, "rotation", getRotation(), rotationTo);
-                rotationAnimator.setDuration((long) (durarion * 0.8f));
-                rotationAnimator.setInterpolator(new DecelerateInterpolator(1f));
-                rotationAnimator.start();
+//                startAnimator(rotationTo, duration);
+                scroller.fling(0, rotation, 0, (int) velocity, 0, 0, 0, rotationTo);
+                invalidate();
                 break;
         }
         return true;
     }
 
-    public boolean isClockWise(double moveDegrees) {
-
-        Log.i(TAG, "/////" + moveDegrees);
-        if (Math.abs(moveDegrees) > 170 && moveDegrees < 0 && lastMoveDegrees > 0) {
-            return true;
-        } else if (Math.abs(moveDegrees) > 170 && moveDegrees > 0 && lastMoveDegrees < 0) {
-            return false;
-        } else {
-            if (moveDegrees > lastMoveDegrees)
-                return true;
-            else
-                return false;
+    @Override
+    public void computeScroll() {
+        if (scroller.computeScrollOffset()) {
+            rotation = scroller.getCurrY();
+            postInvalidate();
         }
+    }
+
+    private String getItemName(int index) {
+        int size = itemNames.size();
+        return itemNames.get(index % size);
+    }
+
+    private int getColor(int index) {
+        int length = colors.length;
+        return colors[index % length];
+    }
+
+    @Override
+    public boolean performClick() {
+        return super.performClick();
+    }
+
+    private double getSplineFlingRotation(int velocity) {
+        final double l = getSplineDeceleration(velocity);
+        final double decelMinusOne = DECELERATION_RATE - 1.0;
+        return mFlingFriction * mPhysicalCoeff * Math.exp(DECELERATION_RATE / decelMinusOne * l);
+    }
+
+    /* Returns the duration, expressed in milliseconds */
+    private int getSplineFlingDuration(int velocity) {
+        final double l = getSplineDeceleration(velocity);
+        final double decelMinusOne = DECELERATION_RATE - 1.0;
+        return (int) (1000.0 * Math.exp(l / decelMinusOne));
+    }
+
+    private void startAnimator(int rotationTo, long duration) {
+        rotationAnimator = ObjectAnimator.ofFloat(this, "rotation", getRotation(), rotationTo);
+        rotationAnimator.setDuration(duration);
+        rotationAnimator.setInterpolator(new DecelerateInterpolator(1.3f));
+        rotationAnimator.addListener(new AnimatorListener());
+        rotationAnimator.start();
+    }
+
+    private double getSplineDeceleration(int velocity) {
+        return Math.log(INFLEXION * Math.abs(velocity) / (mFlingFriction * mPhysicalCoeff));
+    }
+
+    private boolean isClockWise(double moveDegrees) {
+//        Log.i(TAG, "/////" + moveDegrees + lastMoveDegrees);
+        if (Math.abs(moveDegrees - lastMoveDegrees) > 300)
+            return moveDegrees < lastMoveDegrees;
+        return moveDegrees > lastMoveDegrees;
+    }
+
+    private int getWinnerByRotation(float rotation) {
+        int result = 0;
+        if (rotation < 0) {
+            for (int i = 1; i <= part; i++) {
+                if (rotation > -i * sweepAngle) {
+                    return i - 1;
+                }
+            }
+        } else {
+            for (int i = 1; i <= part; i++) {
+                if (rotation < i * sweepAngle) {
+                    return part - i;
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -194,8 +309,18 @@ public class PanView extends View {
     private double getDegrees(MotionEvent event) {
         double deltaY = event.getRawY() - centerOnScreenY;
         double deltaX = event.getRawX() - centerOnScreenX;
-//        return Math.atan(deltaY / deltaX) / Math.PI * 180;
-        return Math.atan2(deltaY, deltaX) / Math.PI * 180;
+        double degrees = Math.atan2(deltaY, deltaX) / Math.PI * 180;
+        if (degrees < 0)
+            degrees += 360;
+        return degrees;
+    }
+
+    private class AnimatorListener extends AnimatorListenerAdapter {
+        @Override
+        public void onAnimationEnd(Animator animation) {
+            getRotation();
+        }
+
     }
 
     @Override
@@ -244,8 +369,85 @@ public class PanView extends View {
         float x = getMeasuredWidth() / 2;
         float y = getMeasuredHeight() / 2;
 
-        canvas.drawCircle(x, y, Math.min(x, y) - strokeWidth, paint);
+        canvas.drawCircle(x, y, Math.min(x, y) - strokeWidth, arcPaint);
 
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        setMeasuredDimension(measureWidth(widthMeasureSpec), measureHeight(heightMeasureSpec));
+    }
+
+
+    private int measureWidth(int widthMeasureSpec) {
+        int result;
+        int specMode = MeasureSpec.getMode(widthMeasureSpec);
+        int specSize = MeasureSpec.getSize(widthMeasureSpec);
+
+        if (specMode == MeasureSpec.EXACTLY) {
+            result = specSize;
+        } else {
+            result = wrapWidth;
+            if (specMode == MeasureSpec.AT_MOST) {
+                result = Math.min(result, specSize);
+            }
+        }
+        return result;
+    }
+
+
+    private int measureHeight(int heightMeasureSpec) {
+        int result;
+        int specMode = MeasureSpec.getMode(heightMeasureSpec);
+        int specSize = MeasureSpec.getSize(heightMeasureSpec);
+
+        if (specMode == MeasureSpec.EXACTLY) {
+            result = specSize;
+        } else {
+            result = wrapHeight;
+            if (specMode == MeasureSpec.AT_MOST) {
+                result = Math.min(result, specSize);
+            }
+        }
+        return result;
+    }
+
+    private static class FixedSizeList<E> implements Iterable<E> {
+
+        private List<E> linkedList = new LinkedList<>();
+
+        static final int MAX_SIZE = 3;
+
+        public boolean add(E e) {
+            if (linkedList.size() >= MAX_SIZE)
+                linkedList.remove(0);
+            linkedList.add(e);
+            return true;
+        }
+
+        public E get(int index) {
+            if (index >= MAX_SIZE)
+                throw new IllegalArgumentException("The max size is 3");
+            return linkedList.get(index);
+        }
+
+        public int size() {
+            return linkedList.size();
+        }
+
+        public Double getAverage() {
+            Double sum = 0d;
+            List<E> list = linkedList;
+            for (E e : list) {
+                sum += (Double) e;
+            }
+            return sum;
+        }
+
+        @Override
+        public Iterator<E> iterator() {
+            return null;
+        }
     }
 
 }
