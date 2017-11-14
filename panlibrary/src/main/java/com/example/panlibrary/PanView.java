@@ -198,7 +198,7 @@ public class PanView extends View {
                 fixedSizeList.add(moveDegrees);
                 final double deltaDegrees = moveDegrees - downDegrees;
                 rotation = (int) (totalRotation + deltaDegrees);
-//                Log.i(TAG, "/////" + totalRotation + "..." + deltaDegrees);
+                Log.i(TAG, "/////" + totalRotation + "..." + deltaDegrees);
                 invalidate();
                 lastDegrees = deltaDegrees;
                 lastMoveDegrees = moveDegrees;
