@@ -200,6 +200,7 @@ public class PanView extends View {
                 rotation = (int) (totalRotation + deltaDegrees);
                 Log.i(TAG, "/////" + totalRotation + "..." + deltaDegrees);
                 Log.i(TAG, "master push test." + totalRotation + "..." + deltaDegrees);
+                Log.i(TAG, "development push test." + totalRotation + "..." + deltaDegrees);
                 invalidate();
                 lastDegrees = deltaDegrees;
                 lastMoveDegrees = moveDegrees;
