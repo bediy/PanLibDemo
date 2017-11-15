@@ -199,7 +199,7 @@ public class PanView extends View {
                 final double deltaDegrees = moveDegrees - downDegrees;
                 rotation = (int) (totalRotation + deltaDegrees);
                 Log.i(TAG, "/////" + totalRotation + "..." + deltaDegrees);
-                Log.i(TAG, "merge from two local branches." + totalRotation + "..." + deltaDegrees);
+                Log.i(TAG, "merge from two local branches.(version 2)" + totalRotation + "..." + deltaDegrees);
                 invalidate();
                 lastDegrees = deltaDegrees;
                 lastMoveDegrees = moveDegrees;
